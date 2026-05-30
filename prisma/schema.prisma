@@ -1,0 +1,341 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleCode {
+  SUPER_ADMIN
+  ADMIN_LPPM
+  REVIEWER
+  KAPRODI
+  DOSEN
+}
+
+enum ResearchStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum DocumentType {
+  PROPOSAL
+  PROGRESS_REPORT
+  FINAL_REPORT
+  PUBLICATION_PDF
+  OTHER
+}
+
+enum ReviewRecommendation {
+  APPROVED
+  REVISION
+  REJECTED
+}
+
+enum PublicationCategory {
+  JURNAL_NASIONAL
+  JURNAL_INTERNASIONAL
+  SCOPUS
+  WOS
+  PROSIDING
+  BUKU
+  HKI
+}
+
+enum NotificationType {
+  PROPOSAL_APPROVED
+  PROPOSAL_REVISED
+  DEADLINE_REMINDER
+  REVIEWER_ASSIGNED
+  GENERAL
+}
+
+model Role {
+  id          String    @id @default(uuid()) @db.Uuid
+  code        RoleCode  @unique
+  name        String
+  description String?
+  permissions Json?
+  users       User[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime?
+  deletedById String?   @db.Uuid
+
+  @@index([deletedAt])
+}
+
+model User {
+  id            String              @id @default(uuid()) @db.Uuid
+  roleId        String              @db.Uuid
+  role          Role                @relation(fields: [roleId], references: [id])
+  name          String
+  email         String              @unique
+  passwordHash  String
+  nidn          String?             @unique
+  department    String?
+  prodi         String?
+  avatarUrl     String?
+  isActive      Boolean             @default(true)
+  scholarProfile ScholarProfile?
+  ledResearch   Research[]          @relation("ResearchLeader")
+  researchMemberships ResearchMember[]
+  uploadedResearchDocuments ResearchDocument[] @relation("ResearchDocumentUploadedBy")
+  publications  PublicationAuthor[]
+  reviews       Review[]            @relation("ReviewReviewer")
+  reviewAssignments Review[]         @relation("ReviewAssignedBy")
+  assignedNotifications Notification[] @relation("NotificationUser")
+  createdNotifications Notification[] @relation("NotificationCreatedBy")
+  passwordResetTokens PasswordResetToken[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  createdById   String?             @db.Uuid
+  updatedById   String?             @db.Uuid
+  deletedAt     DateTime?
+  deletedById   String?             @db.Uuid
+
+  @@index([roleId])
+  @@index([deletedAt])
+}
+
+model ScholarProfile {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @db.Uuid
+  user          User     @relation(fields: [userId], references: [id])
+  scholarId     String   @unique
+  hIndex        Int      @default(0)
+  i10Index      Int      @default(0)
+  citationCount Int      @default(0)
+  provider      String   @default("mock")
+  rawData       Json?
+  syncedAt      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String?  @db.Uuid
+  updatedById   String?  @db.Uuid
+  deletedAt     DateTime?
+  deletedById   String?  @db.Uuid
+
+  @@index([deletedAt])
+}
+
+model Research {
+  id          String             @id @default(uuid()) @db.Uuid
+  title       String
+  abstract    String
+  year        Int
+  budget      Decimal            @db.Decimal(18, 2)
+  scheme      String
+  status      ResearchStatus     @default(DRAFT)
+  progress    Int                @default(0)
+  leaderId    String             @db.Uuid
+  leader      User               @relation("ResearchLeader", fields: [leaderId], references: [id])
+  members     ResearchMember[]
+  documents   ResearchDocument[]
+  reviews     Review[]
+  notifications Notification[]
+  timeline    Json?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  createdById String?            @db.Uuid
+  updatedById String?            @db.Uuid
+  deletedAt   DateTime?
+  deletedById String?            @db.Uuid
+
+  @@index([leaderId])
+  @@index([status])
+  @@index([year])
+  @@index([deletedAt])
+}
+
+model ResearchMember {
+  id              String   @id @default(uuid()) @db.Uuid
+  researchId      String   @db.Uuid
+  userId          String   @db.Uuid
+  roleInResearch  String
+  isLeader        Boolean  @default(false)
+  contributionPct Decimal? @db.Decimal(5, 2)
+  research        Research @relation(fields: [researchId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String?  @db.Uuid
+  updatedById     String?  @db.Uuid
+  deletedAt       DateTime?
+  deletedById     String?  @db.Uuid
+
+  @@unique([researchId, userId])
+  @@index([researchId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model ResearchDocument {
+  id          String       @id @default(uuid()) @db.Uuid
+  researchId  String       @db.Uuid
+  research    Research     @relation(fields: [researchId], references: [id])
+  type        DocumentType
+  title       String
+  fileName    String
+  filePath    String
+  mimeType    String
+  size        Int
+  version     Int          @default(1)
+  uploadedById String?     @db.Uuid
+  uploadedBy   User?       @relation("ResearchDocumentUploadedBy", fields: [uploadedById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdById String?      @db.Uuid
+  updatedById String?      @db.Uuid
+  deletedAt   DateTime?
+  deletedById String?      @db.Uuid
+
+  @@index([researchId])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model Review {
+  id              String               @id @default(uuid()) @db.Uuid
+  researchId      String               @db.Uuid
+  reviewerId      String               @db.Uuid
+  assignedById    String?              @db.Uuid
+  research        Research             @relation(fields: [researchId], references: [id])
+  reviewer       User                 @relation("ReviewReviewer", fields: [reviewerId], references: [id])
+  assignedBy     User?                @relation("ReviewAssignedBy", fields: [assignedById], references: [id])
+  totalScore     Decimal              @db.Decimal(5, 2)
+  recommendation ReviewRecommendation
+  comment        String?
+  reviewedAt     DateTime?
+  criteria       ReviewCriteria[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  createdById    String?              @db.Uuid
+  updatedById    String?              @db.Uuid
+  deletedAt      DateTime?
+  deletedById    String?              @db.Uuid
+
+  @@index([researchId])
+  @@index([reviewerId])
+  @@index([deletedAt])
+}
+
+model ReviewCriteria {
+  id           String   @id @default(uuid()) @db.Uuid
+  reviewId     String   @db.Uuid
+  review       Review   @relation(fields: [reviewId], references: [id])
+  criterionKey String
+  criterionName String
+  score        Decimal  @db.Decimal(5, 2)
+  weight       Decimal  @db.Decimal(5, 2)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdById  String?  @db.Uuid
+  updatedById  String?  @db.Uuid
+  deletedAt    DateTime?
+  deletedById  String?  @db.Uuid
+
+  @@index([reviewId])
+  @@index([deletedAt])
+}
+
+model Publication {
+  id            String               @id @default(uuid()) @db.Uuid
+  title         String
+  doi           String?              @unique
+  journal       String?
+  publisher     String?
+  year          Int
+  quartile      String?
+  indexing      String?
+  citationCount Int                  @default(0)
+  category      PublicationCategory
+  fileName      String?
+  filePath      String?
+  fileMimeType  String?
+  fileSize      Int?
+  authors       PublicationAuthor[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  createdById   String?              @db.Uuid
+  updatedById   String?              @db.Uuid
+  deletedAt     DateTime?
+  deletedById   String?              @db.Uuid
+
+  @@index([category])
+  @@index([year])
+  @@index([deletedAt])
+}
+
+model PublicationAuthor {
+  id             String       @id @default(uuid()) @db.Uuid
+  publicationId   String       @db.Uuid
+  publication     Publication  @relation(fields: [publicationId], references: [id])
+  userId         String?       @db.Uuid
+  user           User?         @relation(fields: [userId], references: [id])
+  authorName     String
+  affiliation    String?
+  orderIndex     Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdById    String?       @db.Uuid
+  updatedById    String?       @db.Uuid
+  deletedAt      DateTime?
+  deletedById    String?       @db.Uuid
+
+  @@index([publicationId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model Notification {
+  id            String            @id @default(uuid()) @db.Uuid
+  userId        String            @db.Uuid
+  user          User              @relation("NotificationUser", fields: [userId], references: [id])
+  researchId    String?           @db.Uuid
+  research      Research?         @relation(fields: [researchId], references: [id])
+  type          NotificationType
+  title         String
+  message       String
+  actionUrl     String?
+  payload       Json?
+  isRead        Boolean           @default(false)
+  readAt        DateTime?
+  createdById   String?           @db.Uuid
+  createdBy     User?             @relation("NotificationCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  updatedById   String?           @db.Uuid
+  deletedAt     DateTime?
+  deletedById   String?           @db.Uuid
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([deletedAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+  token      String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  @@index([userId])
+  @@index([deletedAt])
+}

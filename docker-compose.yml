@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: researchhub_campus
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - researchhub_pgdata:/var/lib/postgresql/data
+
+  web:
+    build: .
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/researchhub_campus?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: researchhub-campus-super-secret-key-please-change
+      APP_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    command: sh -c "npx prisma migrate deploy && npm run seed && npm start"
+
+volumes:
+  researchhub_pgdata:
