@@ -2,6 +2,25 @@
 
 ResearchHub Campus is an MVP-grade research and publication management system for higher education institutions.
 
+Repository: https://github.com/0xyz-exe/ResearchHub-Campus
+
+## Screenshots
+
+### Campus Research Dashboard & Analytics
+![Research dashboard](docs/screenshots/01_dashboard.png)
+
+### Research Proposals & Peer Review Lifecycle
+![Research proposals](docs/screenshots/02_research_proposals.png)
+
+### Institutional Publication Repository
+![Publications](docs/screenshots/03_publications.png)
+
+### Scholar Profiles & Metrics Export
+![Scholar profiles](docs/screenshots/04_scholar_profiles.png)
+
+### Institutional Authentication
+![Authentication](docs/screenshots/05_login.png)
+
 ## Tech Stack
 
 - Next.js 15 App Router
